@@ -1,0 +1,270 @@
+#!/usr/bin/python
+
+import mysql.connector
+import sys
+import csv
+import json
+from collections import OrderedDict
+from pprint import pprint
+import pandas as pd
+
+class Connector:
+
+    def mysql_connector(self):
+
+        conn = mysql.connector.connect(user='*****',password='*****',host='*****',
+        database='db')
+
+        cur = conn.cursor()
+
+        mysql_metadata_query = ("""select a.table_schema,a.table_name,a.column_name,a.ordinal_position,a.column_type,a.column_default,
+        a.is_nullable,a.data_type,a.numeric_precision,a.numeric_scale,a.column_key,a.extra,
+        b.index_name,b.referenced_table_schema,b.referenced_table_name,b.referenced_column_name,b.constraint_name,b.constraint_type
+        from information_schema.columns a
+        left outer join
+        (select distinct s.table_schema,s.table_name,
+        case when pfkeys.constraint_name = 'PRIMARY' or s.index_name = 'PRIMARY' then pfkeys.constraint_name else s.index_name end as index_name,
+        s.column_name,
+        case when pfkeys.constraint_name ='PRIMARY' then null else pfkeys.referenced_table_schema end as referenced_table_schema,
+        case when pfkeys.constraint_name ='PRIMARY' then null else pfkeys.referenced_table_name end as referenced_table_name,
+        case when pfkeys.constraint_name ='PRIMARY' then null else pfkeys.referenced_column_name end as referenced_column_name,
+        pfkeys.constraint_name,pfkeys.constraint_type
+        from information_schema.statistics s
+        left outer join
+        (select kcu.table_schema,kcu.table_name,kcu.column_name,kcu.referenced_table_schema,kcu.referenced_table_name,kcu.referenced_column_name,tc.constraint_name,tc.constraint_type 
+        from information_schema.key_column_usage kcu,information_schema.table_constraints tc 
+        where kcu.constraint_schema='db' and kcu.constraint_schema = tc.constraint_schema and kcu.table_name = tc.table_name and 
+        kcu.constraint_name = tc.constraint_name) pfkeys 
+        on s.table_schema = pfkeys.table_schema and s.table_name = pfkeys.table_name and s.column_name = pfkeys.column_name 
+        where s.table_schema = 'db'
+        ) b 
+        on a.table_schema = b.table_schema and a.table_name = b.table_name and a.column_name = b.column_name
+        where a.table_schema='db'
+        order by a.table_name,a.ordinal_position;
+        """)
+
+        cur.execute(mysql_metadata_query)
+
+        # Fetch column headings
+        field_names = [i[0] for i in cur.description]
+
+        columns = '|'.join(field_names)
+
+        writer = connector.open_csv_file()
+
+        connector.write_to_csv(writer,columns.split("|"))
+
+        # num_fields = len(field_names)
+
+        # Fetch rows
+        all_rows = cur.fetchall();
+
+        for c in all_rows:
+            row = "|".join(map(str,c))
+            connector.write_to_csv(writer, row.split("|"))
+            # print(row)
+
+        cur.close()
+        conn.close()
+
+    def open_csv_file(self):
+        print 'csv file open'
+        writer = csv.writer(open("/home/hadoop/work/output/csvfile.csv", 'wb'))
+        return writer
+
+    def write_to_csv(self,writer,record):
+        writer.writerow(record)
+
+    def csv_to_json(self,csv_file,json_file):
+        # csv_file = '/home/hadoop/work/output/csvfile.csv'
+        # json_file = '/home/hadoop/work/output/csvfile.json'
+
+        csvfile = csv.reader(open(csv_file))
+        jsonfile = open(json_file,"wb")
+
+        # Get the 1st line, assuming it contains the column titles
+        fieldnames = csvfile.next()
+        print fieldnames
+
+        rows = [OrderedDict(zip(fieldnames, r)) for r in csvfile]
+        json.dump(list(rows),jsonfile, indent=2)
+
+
+    def json_to_ddl(self, json_file):
+        with open(json_file) as json_data:
+            jdata = json.load(json_data)
+
+            table_name_tmp =''
+            for i in range(len(jdata)):
+                if table_name_tmp == jdata[i]["table_name"]:
+                    print 'if' + table_name_tmp + "=="+  jdata[i]["table_name"]
+                else:
+                    table_schema = str(jdata[i]["table_schema"])
+                    table_name = str(jdata[i]["table_name"])
+
+                    connector.create_ddl_statement(table_schema,table_name)
+                    print 'else' + table_name_tmp + "==" + jdata[i]["table_name"]
+                # print str(i) + jdata[0]["table_schema"]+ jdata[0]["table_name"]
+                table_name_tmp = jdata[i]["table_name"]
+
+    def create_ddl_statement(self,table_schema,table_name):
+        create_statement = "CREATE TABLE " + table_schema+"."+table_name + " ("
+        print create_statement
+
+if __name__ == '__main__':
+    connector = Connector()
+    csv_file = '/home/hadoop/work/output/csvfile.csv'
+    json_file = '/home/hadoop/work/output/csvfile.json'
+
+    connector.mysql_connector()
+
+    connector.csv_to_json(csv_file,json_file)
+
+    connector.json_to_ddl(json_file)
+
+
+
+    # if __name__ == "__main__":
+    #     if len(sys.argv) != 1:
+    #         print "\nUsage: python json_to_csv.py <node_name> <json_in_file_path> <csv_out_file_path>\n"
+    # else:
+    # # Reading arguments
+    # # node = sys.argv[1]
+    # # json_file_path = sys.argv[2]
+    # # csv_file_path = sys.argv[3]
+    # # fp = open(json_file_path, 'r')
+    # # json_value = fp.read()
+    # # raw_data = json.loads(json_value)
+    # # try:
+    # #     data_to_be_processed = raw_data[node]
+    # # except:
+    # #     data_to_be_processed = raw_data
+
+
+
+
+
+
++++++++++++++++++
+
+
+
+copy
+#!/usr/bin/python
+
+import mysql.connector
+import sys
+import csv
+import json
+from collections import OrderedDict
+
+class Connector:
+
+    def mysql_connector(self):
+
+        conn = mysql.connector.connect(user='*****',password='*****',host='*****',
+        database='db')
+
+        cur = conn.cursor()
+
+        mysql_metadata_query = ("""select a.table_schema,a.table_name,a.column_name,a.ordinal_position,a.column_type,a.column_default,
+        a.is_nullable,a.data_type,a.numeric_precision,a.numeric_scale,a.column_key,a.extra,
+        b.index_name,b.referenced_table_schema,b.referenced_table_name,b.referenced_column_name,b.constraint_name,b.constraint_type
+        from information_schema.columns a
+        left outer join
+        (select distinct s.table_schema,s.table_name,
+        case when pfkeys.constraint_name = 'PRIMARY' or s.index_name = 'PRIMARY' then pfkeys.constraint_name else s.index_name end as index_name,
+        s.column_name,
+        case when pfkeys.constraint_name ='PRIMARY' then null else pfkeys.referenced_table_schema end as referenced_table_schema,
+        case when pfkeys.constraint_name ='PRIMARY' then null else pfkeys.referenced_table_name end as referenced_table_name,
+        case when pfkeys.constraint_name ='PRIMARY' then null else pfkeys.referenced_column_name end as referenced_column_name,
+        pfkeys.constraint_name,pfkeys.constraint_type
+        from information_schema.statistics s
+        left outer join
+        (select kcu.table_schema,kcu.table_name,kcu.column_name,kcu.referenced_table_schema,kcu.referenced_table_name,kcu.referenced_column_name,tc.constraint_name,tc.constraint_type 
+        from information_schema.key_column_usage kcu,information_schema.table_constraints tc 
+        where kcu.constraint_schema='db' and kcu.constraint_schema = tc.constraint_schema and kcu.table_name = tc.table_name and 
+        kcu.constraint_name = tc.constraint_name) pfkeys 
+        on s.table_schema = pfkeys.table_schema and s.table_name = pfkeys.table_name and s.column_name = pfkeys.column_name 
+        where s.table_schema = 'db'
+        ) b 
+        on a.table_schema = b.table_schema and a.table_name = b.table_name and a.column_name = b.column_name
+        where a.table_schema='db'
+        order by a.table_name,a.ordinal_position;
+        """)
+
+        cur.execute(mysql_metadata_query)
+
+        # Fetch column headings
+        field_names = [i[0] for i in cur.description]
+        columns = '|'.join(field_names)
+
+        writer = csv.writer(open("/home/hadoop/work/output/csvfile.csv", 'wb'))
+
+        connector.open_files()
+        connector.write_to_csv()
+
+        writer.writerow(columns.split("|"))
+
+        num_fields = len(field_names)
+
+        # Fetch rows
+        all_rows = cur.fetchall();
+
+        for c in all_rows:
+            row = "|".join(map(str,c))
+            print(row)
+            writer.writerow(row.split("|"))
+
+        cur.close()
+        conn.close()
+
+    def open_files(self):
+        print 'files open'
+
+    def write_to_csv(self):
+        print 'a'
+
+    # def read_csv(file, json_file, format):
+
+
+
+    # def read_csv(file, json_file, format):
+    def csv_to_json(self):
+        csv_file = '/home/hadoop/work/output/csvfile.csv'
+        json_file = '/home/hadoop/work/output/csvfile.json'
+
+        csvfile = csv.reader(open(csv_file))
+        jsonfile = open(json_file,"wb")
+
+        # Get the 1st line, assuming it contains the column titles
+        fieldnames = csvfile.next()
+        print fieldnames
+
+        rows = [OrderedDict(zip(fieldnames, r)) for r in csvfile]
+        json.dump(list(rows),jsonfile, indent=2)
+
+
+if __name__ == '__main__':
+    connector = Connector()
+    connector.mysql_connector()
+    connector.csv_to_json()
+
+    # if __name__ == "__main__":
+    #     if len(sys.argv) != 1:
+    #         print "\nUsage: python json_to_csv.py <node_name> <json_in_file_path> <csv_out_file_path>\n"
+    # else:
+    # # Reading arguments
+    # # node = sys.argv[1]
+    # # json_file_path = sys.argv[2]
+    # # csv_file_path = sys.argv[3]
+    # # fp = open(json_file_path, 'r')
+    # # json_value = fp.read()
+    # # raw_data = json.loads(json_value)
+    # # try:
+    # #     data_to_be_processed = raw_data[node]
+    # # except:
+    # #     data_to_be_processed = raw_data
+
+
++++++++++++++++++++++++++++
